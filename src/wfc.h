@@ -1,10 +1,19 @@
 #pragma once
 
 typedef struct {
-  int *buffer;
-  int size;
+  int x;
+  int y;
+} Vector2;
+
+typedef struct {
+  void *content;
   int type;
 } Rule;
+
+typedef struct {
+  Vector2 **id_locations;
+  int *id_locations_size;
+} AdjacentRule;
 
 typedef struct {
   int *superposition;
@@ -12,14 +21,23 @@ typedef struct {
 } WaveFunction;
 
 typedef struct {
-  int **buffer;
+  WaveFunction **buffer;
 
   int **input;
-  int input_width;
-  int input_height;
+  Vector2 input_size;
 
-  int output_width;
-  int output_height;
+  Vector2 output_size;
+
+  int max_id;
 
   Rule rule;
 } Grid;
+
+Rule preprocessor(int **input, const Vector2 size);
+Grid new_grid(int **input, Vector2 input_size, Vector2 output_size);
+Vector2 get_min_entropy(const Grid *grid);
+int is_complete(const Grid *grid);
+void populate_queue(Grid *grid);
+void update_wave_function(Grid *grid, const Vector2 l);
+void collapse_wave_function(Grid *grid);
+int **generate(Grid **grid);
