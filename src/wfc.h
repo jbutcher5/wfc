@@ -23,10 +23,9 @@ typedef struct {
 typedef struct {
   WaveFunction **buffer;
 
-  int **input;
-  Vector2 input_size;
-
-  Vector2 output_size;
+  const int **input;
+  const Vector2 input_size;
+  const Vector2 output_size;
 
   int max_id;
 
@@ -34,8 +33,10 @@ typedef struct {
 } Grid;
 
 Rule preprocessor(int **input, const Vector2 size);
-Grid new_grid(int **input, Vector2 input_size, Vector2 output_size);
+Grid new_grid(const int **input, const Vector2 input_size,
+              const Vector2 output_size);
 Vector2 get_min_entropy(const Grid *grid);
+WaveFunction *get_tile(const Grid *grid, const Vector2 l);
 int is_complete(const Grid *grid);
 void populate_queue(Grid *grid);
 void update_wave_function(Grid *grid, const Vector2 l);

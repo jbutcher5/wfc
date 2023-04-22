@@ -3,6 +3,9 @@
 
 #define ID_LOCATIONS_INITIAL_INCREMENT 8
 
+const Vector2 offsets[4] = {
+    {.x = 0, .y = 1}, {.x = 1, .y = 0}, {.x = 0, .y = -1}, {.x = -1, .y = 0}};
+
 inline int get_max_id(const int **input, const Vector2 size) {
   int max = 0;
 
@@ -48,15 +51,16 @@ Rule new_adjacent_rule(const int **input, const Vector2 input_size,
           (Vector2){.x = i, .y = j};
     }
 
+  free(allocated);
+
   return rule;
 }
 
-Grid new_grid(int **input, Vector2 input_size, Vector2 output_size) {
-  Grid grid;
+Grid new_grid(const int **input, const Vector2 input_size,
+              const Vector2 output_size) {
+  Grid grid = {
+      .input = input, .input_size = input_size, .output_size = output_size};
 
-  grid.input = input;
-  grid.input_size = input_size;
-  grid.output_size = output_size;
   grid.buffer = (WaveFunction **)calloc(output_size.x, sizeof(WaveFunction *));
 
   for (int i = 0; i < output_size.x; i++)
@@ -65,5 +69,40 @@ Grid new_grid(int **input, Vector2 input_size, Vector2 output_size) {
 
   grid.max_id = get_max_id(input, input_size);
 
+  grid.rule = new_adjacent_rule(input, input_size, grid.max_id);
+
   return grid;
+}
+
+inline WaveFunction *get_tile(const Grid *grid, const Vector2 l) {
+  return grid->buffer[l.x] + l.y;
+}
+
+Vector2 get_min_entropy(const Grid *grid) {
+  Vector2 current_lowest = {.x = 0, .y = 0};
+  int current, lowest_entropy;
+
+  for (int i = 0; i < grid->output_size.x; i++)
+    for (int j = 0; j < grid->output_size.y; j++) {
+      current = grid->buffer[i][j].size;
+
+      lowest_entropy = get_tile(grid, current_lowest)->size;
+
+      if (current == 2)
+        return (Vector2){.x = i, .y = j};
+
+      if ((current < lowest_entropy && current > 1) || lowest_entropy == 1)
+        current_lowest = (Vector2){.x = i, .y = j};
+    }
+
+  return current_lowest;
+}
+
+int is_complete(const Grid *grid) {
+  for (int i = 0; i < grid->output_size.x; i++)
+    for (int j = 0; j < grid->output_size.y; j++)
+      if (grid->buffer[i][j].size > 1)
+        return 0;
+
+  return 1;
 }
