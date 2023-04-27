@@ -20,6 +20,37 @@ inline int get_max_id(const int **input, const Vector2 size) {
   return max;
 }
 
+WaveFunction new_wave_function() {
+  WaveFunction wave;
+
+  wave.allocated = 8;
+  wave.superposition = calloc(wave.allocated, sizeof(int));
+
+  wave.size = 0;
+
+  return wave;
+}
+
+WaveFunction iota(int n) {
+  WaveFunction wave = new_wave_function();
+
+  for (int i = 0; i <= n; i++)
+    append(&wave, i);
+
+  return wave;
+}
+
+void append(WaveFunction *wave, int n) {
+  if (wave->size + 1 >= wave->allocated) {
+    wave->allocated += 8;
+    wave->superposition = realloc(wave->superposition, wave->allocated);
+  }
+
+  wave->superposition[wave->size] = n;
+
+  wave->size++;
+}
+
 Rule new_adjacent_rule(const int **input, const Vector2 input_size,
                        const int max_id) {
 
@@ -63,11 +94,14 @@ Grid new_grid(const int **input, const Vector2 input_size,
 
   grid.buffer = (WaveFunction **)calloc(output_size.x, sizeof(WaveFunction *));
 
-  for (int i = 0; i < output_size.x; i++)
+  grid.max_id = get_max_id(input, input_size);
+
+  for (int i = 0; i < output_size.x; i++) {
     grid.buffer[i] =
         (WaveFunction *)calloc(output_size.y, sizeof(WaveFunction));
-
-  grid.max_id = get_max_id(input, input_size);
+    for (int j = 0; j < output_size.y; j++)
+      grid.buffer[i][j] = iota(grid.max_id);
+  }
 
   grid.rule = new_adjacent_rule(input, input_size, grid.max_id);
 
@@ -105,4 +139,64 @@ int is_complete(const Grid *grid) {
         return 0;
 
   return 1;
+}
+
+int update_wave_function(Grid *grid, const Vector2 l, const Vector2 delta) {
+  if (l.x < 0 || l.x >= grid->output_size.x || l.y < 0 ||
+      l.y >= grid->output_size.y)
+    return 1;
+
+  WaveFunction *a, *b;
+
+  a = get_tile(grid, l);
+  b = get_tile(grid, (Vector2){l.x + delta.x, l.x + delta.y});
+
+  switch (grid->rule.type) {
+  case 0: {
+    AdjacentRule *rule = grid->rule.content;
+
+    return apply_adj_rule(grid, rule, a, b, delta);
+  }
+  default:
+    return 3;
+  }
+
+  return 0;
+}
+
+int apply_adj_rule(Grid *grid, AdjacentRule *rule, WaveFunction *a,
+                   WaveFunction *b, const Vector2 delta) {
+
+  WaveFunction old_a = *a;
+  *a = new_wave_function();
+
+  for (int i = 0; i < b->size; i++) {
+    int id = b->superposition[i];
+
+    for (int j = 0; j < rule->id_locations_size[id]; j++) {
+      Vector2 adj_location = rule->id_locations[id][j];
+      adj_location.x += delta.x;
+      adj_location.y += delta.y;
+
+      if (adj_location.x < 0 || adj_location.y < 0 ||
+          adj_location.x >= grid->output_size.x ||
+          adj_location.y >= grid->output_size.y)
+        continue;
+
+      int state = grid->input[adj_location.x][adj_location.y];
+
+      int is_in_old_a = 0;
+
+      for (int k = 0; k < old_a.size; k++)
+        if (old_a.superposition[k] == state) {
+          is_in_old_a = 1;
+          break;
+        }
+
+      if (is_in_old_a)
+        append(a, state);
+    }
+  }
+
+  return !a->size * 2;
 }
