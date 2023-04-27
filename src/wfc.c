@@ -20,7 +20,7 @@ inline int get_max_id(const int **input, const Vector2 size) {
   return max;
 }
 
-WaveFunction new_wave_function() {
+WaveFunction new_wave_function(void) {
   WaveFunction wave;
 
   wave.allocated = 8;

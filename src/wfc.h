@@ -33,10 +33,11 @@ typedef struct {
   Rule rule;
 } Grid;
 
-WaveFunction new_wave_function();
+WaveFunction new_wave_function(void);
 WaveFunction iota(int n);
 void append(WaveFunction *wave, int n);
 
+int get_max_id(const int **input, const Vector2 size);
 Rule preprocessor(int **input, const Vector2 size);
 Grid new_grid(const int **input, const Vector2 input_size,
               const Vector2 output_size);
