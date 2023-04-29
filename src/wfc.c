@@ -30,7 +30,7 @@ WaveFunction new_wave_function(void) {
   wave.allocated = 8;
   wave.superposition = calloc(wave.allocated, sizeof(int));
   wave.updated = 1;
-  wave.comparison = {.x = 0, .y = 0};
+  wave.comparison = (Vector2){.x = 0, .y = 0};
   wave.size = 0;
 
   return wave;
