@@ -20,12 +20,17 @@ inline int get_max_id(const int **input, const Vector2 size) {
   return max;
 }
 
+inline int is_in_bounds(Vector2 l, Vector2 bounds) {
+  return (l.x >= 0) && (l.y >= 0) && (l.x < bounds.x) && (l.y < bounds.y);
+}
+
 WaveFunction new_wave_function(void) {
   WaveFunction wave;
 
   wave.allocated = 8;
   wave.superposition = calloc(wave.allocated, sizeof(int));
-
+  wave.updated = 1;
+  wave.comparison = {.x = 0, .y = 0};
   wave.size = 0;
 
   return wave;
@@ -142,8 +147,7 @@ int is_complete(const Grid *grid) {
 }
 
 int update_wave_function(Grid *grid, const Vector2 l, const Vector2 delta) {
-  if (l.x < 0 || l.x >= grid->output_size.x || l.y < 0 ||
-      l.y >= grid->output_size.y)
+  if (!is_in_bounds(l, grid->output_size))
     return 1;
 
   WaveFunction *a, *b;
@@ -199,4 +203,69 @@ int apply_adj_rule(Grid *grid, AdjacentRule *rule, WaveFunction *a,
   }
 
   return !a->size * 2;
+}
+
+Vector2 *populate_queue(Grid *grid, Vector2 epicentre) {
+  for (int i = 0; i < grid->output_size.x; i++)
+    for (int j = 0; j < grid->output_size.y; j++)
+      grid->buffer[i][j].updated = 0;
+
+  Vector2 *update_queue, *current_cells, *recently_added;
+  int queue_size, current_size, recent_size;
+
+  update_queue =
+      calloc(grid->output_size.x * grid->output_size.y, sizeof(Vector2));
+  current_cells =
+      calloc(grid->output_size.x * grid->output_size.y, sizeof(Vector2));
+  recently_added =
+      calloc(grid->output_size.x * grid->output_size.y, sizeof(Vector2));
+
+  queue_size = 0;
+  current_size = 1;
+  recent_size = 0;
+
+  get_tile(grid, epicentre)->updated = 1;
+  current_cells[0] = epicentre;
+
+  while (queue_size != grid->output_size.x * grid->output_size.y) {
+    for (int i = 0; i < current_size; i++) {
+      Vector2 location = current_cells[i];
+
+      for (int i = 0; i < 4; i++) {
+        Vector2 next = location;
+        next.x += offsets[i].x;
+        next.y += offsets[i].y;
+
+        WaveFunction *wave = get_tile(grid, next);
+
+        if (!is_in_bounds(next, grid->output_size) || wave->updated)
+          continue;
+
+        wave->comparison = location;
+        wave->updated = 1;
+
+        recently_added[recent_size] = next;
+        recent_size++;
+      }
+    }
+
+    for (int i = 0; i < current_size; i++, queue_size++)
+      update_queue[queue_size] = current_cells[i];
+
+    swap(current_cells, recently_added);
+
+    current_size = recent_size;
+    recent_size = 0;
+  }
+
+  free(current_cells);
+  free(recently_added);
+
+  return update_queue;
+}
+
+inline void swap(void *x, void *y) {
+  x = (void *)((long)x ^ (long)y);
+  y = (void *)((long)y ^ (long)x);
+  x = (void *)((long)x ^ (long)y);
 }

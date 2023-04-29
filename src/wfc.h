@@ -19,6 +19,8 @@ typedef struct {
   int *superposition;
   int size;
   int allocated;
+  int updated;
+  Vector2 comparison;
 } WaveFunction;
 
 typedef struct {
@@ -44,9 +46,11 @@ Grid new_grid(const int **input, const Vector2 input_size,
 Vector2 get_min_entropy(const Grid *grid);
 WaveFunction *get_tile(const Grid *grid, const Vector2 l);
 int is_complete(const Grid *grid);
-void populate_queue(Grid *grid);
+Vector2 *populate_queue(Grid *grid, Vector2 epicentre);
 int update_wave_function(Grid *grid, const Vector2 l, const Vector2 delta);
 void collapse_wave_function(Grid *grid);
 int **generate(Grid **grid);
 int apply_adj_rule(Grid *grid, AdjacentRule *rule, WaveFunction *a,
                    WaveFunction *b, const Vector2 delta);
+int is_in_bounds(Vector2 l, Vector2 bounds);
+void swap(void *x, void *y);
