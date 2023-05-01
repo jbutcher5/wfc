@@ -48,7 +48,8 @@ WaveFunction iota(int n) {
 void append(WaveFunction *wave, int n) {
   if (wave->size + 1 >= wave->allocated) {
     wave->allocated += 8;
-    wave->superposition = realloc(wave->superposition, wave->allocated);
+    wave->superposition =
+        realloc(wave->superposition, wave->allocated * sizeof(int));
   }
 
   wave->superposition[wave->size] = n;
@@ -64,6 +65,7 @@ Rule new_adjacent_rule(const int **input, const Vector2 input_size,
   rule.type = 0;
 
   AdjacentRule *content = rule.content;
+
   content->id_locations = calloc(max_id + 1, sizeof(Vector2 *));
 
   int *allocated = (int *)calloc(max_id + 1, sizeof(int));
@@ -80,7 +82,7 @@ Rule new_adjacent_rule(const int **input, const Vector2 input_size,
       if (allocated[id] <= content->id_locations_size[id]) {
         allocated[id] += ID_LOCATIONS_INITIAL_INCREMENT;
         content->id_locations[id] =
-            realloc(content->id_locations[id], allocated[id]);
+            realloc(content->id_locations[id], allocated[id] * sizeof(Vector2));
       }
 
       content->id_locations[id][content->id_locations_size[id] - 1] =
@@ -94,8 +96,10 @@ Rule new_adjacent_rule(const int **input, const Vector2 input_size,
 
 Grid new_grid(const int **input, const Vector2 input_size,
               const Vector2 output_size) {
-  Grid grid = {
-      .input = input, .input_size = input_size, .output_size = output_size};
+  Grid grid = {.input = input,
+               .input_size = input_size,
+               .output_size = output_size,
+               .is_max_entropy = 1};
 
   grid.buffer = (WaveFunction **)calloc(output_size.x, sizeof(WaveFunction *));
 
@@ -146,18 +150,21 @@ int is_complete(const Grid *grid) {
   return 1;
 }
 
-int update_wave_function(Grid *grid, const Vector2 l, const Vector2 delta) {
+int update_wave_function(Grid *grid, const Vector2 l) {
   if (!is_in_bounds(l, grid->output_size))
     return 1;
 
   WaveFunction *a, *b;
 
   a = get_tile(grid, l);
-  b = get_tile(grid, (Vector2){l.x + delta.x, l.x + delta.y});
+  b = get_tile(grid, a->comparison);
 
   switch (grid->rule.type) {
   case 0: {
     AdjacentRule *rule = grid->rule.content;
+
+    const Vector2 delta = {.x = a->comparison.x - l.x,
+                           .y = a->comparison.y - l.y};
 
     return apply_adj_rule(grid, rule, a, b, delta);
   }
@@ -190,6 +197,7 @@ int apply_adj_rule(Grid *grid, AdjacentRule *rule, WaveFunction *a,
       int state = grid->input[adj_location.x][adj_location.y];
 
       int is_in_old_a = 0;
+      int is_in_a = 0;
 
       for (int k = 0; k < old_a.size; k++)
         if (old_a.superposition[k] == state) {
@@ -197,7 +205,13 @@ int apply_adj_rule(Grid *grid, AdjacentRule *rule, WaveFunction *a,
           break;
         }
 
-      if (is_in_old_a)
+      for (int k = 0; k < a->size; k++)
+        if (a->superposition[k] == state) {
+          is_in_a = 1;
+          break;
+        }
+
+      if (is_in_old_a && !is_in_a)
         append(a, state);
     }
   }
@@ -252,7 +266,12 @@ Vector2 *populate_queue(Grid *grid, Vector2 epicentre) {
     for (int i = 0; i < current_size; i++, queue_size++)
       update_queue[queue_size] = current_cells[i];
 
-    swap(current_cells, recently_added);
+    Vector2 *temp = current_cells;
+
+    current_cells = recently_added;
+    recently_added = temp;
+
+    // swap(current_cells, recently_added);
 
     current_size = recent_size;
     recent_size = 0;
@@ -268,4 +287,67 @@ inline void swap(void *x, void *y) {
   x = (void *)((long)x ^ (long)y);
   y = (void *)((long)y ^ (long)x);
   x = (void *)((long)x ^ (long)y);
+}
+
+void collapse_wave_function(Grid *grid) {
+  Vector2 l;
+
+  if (grid->is_max_entropy) {
+    l.x = rand() % grid->output_size.x;
+    l.y = rand() % grid->output_size.y;
+  } else {
+    l = get_min_entropy(grid);
+  }
+
+  WaveFunction *wave = get_tile(grid, l);
+
+  wave->superposition[0] = wave->superposition[rand() % wave->size];
+  wave->size = 1;
+
+  Vector2 *update_queue = populate_queue(grid, l);
+
+  for (int i = 1; i < grid->output_size.x * grid->output_size.y; i++) {
+    WaveFunction *wave = get_tile(grid, update_queue[i]);
+
+    int result = update_wave_function(grid, update_queue[i]);
+
+    if (result)
+      exit(result);
+  }
+
+  free(update_queue);
+}
+
+int **generate(Grid *grid) {
+  int **buffer;
+
+CHECK_COMPLETE:
+
+  for (int i = 0; i < grid->output_size.x; i++)
+    for (int j = 0; j < grid->output_size.y; j++)
+      if (grid->buffer[i][j].size > 1)
+        goto GRID_NOT_COMPLETE;
+
+  goto GRID_COMPLETE;
+
+GRID_NOT_COMPLETE:
+
+  collapse_wave_function(grid);
+
+  goto CHECK_COMPLETE;
+
+GRID_COMPLETE:
+
+  buffer = calloc(grid->output_size.x, sizeof(int));
+
+  for (int i = 0; i < grid->output_size.x; i++) {
+    buffer[i] = calloc(grid->output_size.y, sizeof(int));
+
+    for (int j = 0; j < grid->output_size.y; j++) {
+      buffer[i][j] = grid->buffer[i][j].superposition[0];
+      free(grid->buffer[i][j].superposition);
+    }
+  }
+
+  return buffer;
 }
