@@ -57,6 +57,17 @@ void append(WaveFunction *wave, int n) {
   wave->size++;
 }
 
+WaveFunction clone_wave(WaveFunction wave) {
+  WaveFunction clone = new_wave_function();
+
+  for (int i = 0; i < wave.size; i++)
+    append(&clone, wave.superposition[i]);
+
+  return clone;
+}
+
+void free_wave(WaveFunction wave) { free(wave.superposition); }
+
 Rule new_adjacent_rule(const int **input, const Vector2 input_size,
                        const int max_id) {
 
@@ -292,6 +303,8 @@ inline void swap(void *x, void *y) {
 void collapse_wave_function(Grid *grid) {
   Vector2 l;
 
+  const int grid_n = grid->output_size.x * grid->output_size.y;
+
   if (grid->is_max_entropy) {
     l.x = rand() % grid->output_size.x;
     l.y = rand() % grid->output_size.y;
@@ -301,20 +314,45 @@ void collapse_wave_function(Grid *grid) {
 
   WaveFunction *wave = get_tile(grid, l);
 
+  WaveFunction old_wave = clone_wave(*wave);
+
   wave->superposition[0] = wave->superposition[rand() % wave->size];
   wave->size = 1;
 
   Vector2 *update_queue = populate_queue(grid, l);
 
-  for (int i = 1; i < grid->output_size.x * grid->output_size.y; i++) {
+  WaveFunction *old_waves = calloc(sizeof(WaveFunction), grid_n - 1);
+
+  int i = 1;
+  for (; i < grid_n; i++) {
     WaveFunction *wave = get_tile(grid, update_queue[i]);
+
+    old_waves[i - 1] = clone_wave(*wave);
 
     int result = update_wave_function(grid, update_queue[i]);
 
-    if (result)
-      exit(result);
+    if (result) {
+      for (; i > 1; i--) {
+        Vector2 location = update_queue[i];
+
+        free_wave(*get_tile(grid, location));
+
+        *get_tile(grid, location) = clone_wave(old_waves[i - 1]);
+      }
+
+      free_wave(*wave);
+
+      *wave = clone_wave(old_wave);
+
+      break;
+    }
   }
 
+  for (int i = 0; i < grid_n - 1; i++)
+    free_wave(old_waves[i]);
+
+  free(old_waves);
+  free_wave(old_wave);
   free(update_queue);
 }
 

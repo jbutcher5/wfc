@@ -40,6 +40,8 @@ typedef struct {
 WaveFunction new_wave_function(void);
 WaveFunction iota(int n);
 void append(WaveFunction *wave, int n);
+WaveFunction clone_wave(WaveFunction wave);
+void free_wave(WaveFunction wave);
 
 int get_max_id(const int **input, const Vector2 size);
 Rule preprocessor(int **input, const Vector2 size);
